@@ -161,6 +161,12 @@ static const char *http_500_error = "Internal Server Error";
 #ifndef SSL_OP_NO_TLSv1_1
 #define SSL_OP_NO_TLSv1_1 0x10000000U
 #endif
+#ifndef TLS1_1_VERSION
+#define TLS1_1_VERSION 0x0302
+#endif
+#ifndef TLS1_2_VERSION
+#define TLS1_2_VERSION 0x0303
+#endif
 
 static const char *month_names[] = {
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -4229,11 +4235,26 @@ static int set_ssl_option(struct sq_context *ctx) {
 
   char* ssl_version = ctx->config[SSL_VERSION];
   int options = SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3;
+  int max_supported_ssl_version = SSLv23_method()->version;
   if (sq_strcasecmp(ssl_version, "tlsv1") == 0) {
     // No-op - don't exclude any TLS protocols.
   } else if (sq_strcasecmp(ssl_version, "tlsv1.1") == 0) {
+    if (max_supported_ssl_version < TLS1_1_VERSION) {
+      cry(fc(ctx),
+          "%s: invalid minimum TLS protocol version: this platform does not support TLSv1.1",
+          __func__);
+      return 0;
+    }
+
     options |= SSL_OP_NO_TLSv1;
   } else if (sq_strcasecmp(ssl_version, "tlsv1.2") == 0) {
+    if (max_supported_ssl_version < TLS1_2_VERSION) {
+      cry(fc(ctx),
+          "%s: invalid minimum TLS protocol version: this platform does not support TLSv1.2",
+          __func__);
+      return 0;
+    }
+
     options |= (SSL_OP_NO_TLSv1 | SSL_OP_NO_TLSv1_1);
   } else {
     cry(fc(ctx), "%s: unknown SSL version: %s", __func__, ssl_version);
